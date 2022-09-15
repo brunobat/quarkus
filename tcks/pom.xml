@@ -106,6 +106,7 @@
                 <module>microprofile-opentracing</module>
                 <module>microprofile-lra</module>
                 <module>resteasy-reactive</module>
+                <module>micoprofile-telemetry-tracing</module>
             </modules>
         </profile>
         <profile>
