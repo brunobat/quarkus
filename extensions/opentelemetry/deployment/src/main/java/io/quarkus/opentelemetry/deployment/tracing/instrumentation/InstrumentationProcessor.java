@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
+import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 
@@ -125,6 +126,18 @@ public class InstrumentationProcessor {
         Consumer<VertxOptions> vertxTracingOptions;
         vertxTracingOptions = recorder.getVertxTracingOptions();
         return new VertxOptionsConsumerBuildItem(vertxTracingOptions, LIBRARY_AFTER);
+    }
+
+    @BuildStep
+    @Record(ExecutionTime.RUNTIME_INIT)
+    void setupVertx(InstrumentationRecorder recorder, BeanContainerBuildItem beanContainerBuildItem,
+                    Capabilities capabilities) {
+        boolean sqlClientAvailable = capabilities.isPresent(Capability.REACTIVE_DB2_CLIENT)
+                || capabilities.isPresent(Capability.REACTIVE_MSSQL_CLIENT)
+                || capabilities.isPresent(Capability.REACTIVE_MYSQL_CLIENT)
+                || capabilities.isPresent(Capability.REACTIVE_ORACLE_CLIENT)
+                || capabilities.isPresent(Capability.REACTIVE_PG_CLIENT);
+        recorder.setupVertxTracer(beanContainerBuildItem.getValue(), sqlClientAvailable);
     }
 
     // RESTEasy and Vert.x web

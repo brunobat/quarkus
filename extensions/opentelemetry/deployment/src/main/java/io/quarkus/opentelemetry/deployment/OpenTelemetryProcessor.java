@@ -71,7 +71,6 @@ import io.quarkus.opentelemetry.runtime.config.build.OTelBuildConfig;
 import io.quarkus.opentelemetry.runtime.config.runtime.OTelRuntimeConfig;
 import io.quarkus.opentelemetry.runtime.tracing.cdi.AddingSpanAttributesInterceptor;
 import io.quarkus.opentelemetry.runtime.tracing.cdi.WithSpanInterceptor;
-import io.quarkus.opentelemetry.runtime.tracing.intrumentation.InstrumentationRecorder;
 import io.quarkus.runtime.LaunchMode;
 import io.quarkus.runtime.configuration.ConfigurationException;
 import io.quarkus.vertx.core.deployment.CoreVertxBuildItem;
@@ -259,18 +258,6 @@ public class OpenTelemetryProcessor {
 
         recorder.eagerlyCreateContextStorage();
         recorder.storeVertxOnContextStorage(vertx.getVertx());
-    }
-
-    @BuildStep
-    @Record(ExecutionTime.RUNTIME_INIT)
-    void setupVertx(InstrumentationRecorder recorder, BeanContainerBuildItem beanContainerBuildItem,
-            Capabilities capabilities) {
-        boolean sqlClientAvailable = capabilities.isPresent(Capability.REACTIVE_DB2_CLIENT)
-                || capabilities.isPresent(Capability.REACTIVE_MSSQL_CLIENT)
-                || capabilities.isPresent(Capability.REACTIVE_MYSQL_CLIENT)
-                || capabilities.isPresent(Capability.REACTIVE_ORACLE_CLIENT)
-                || capabilities.isPresent(Capability.REACTIVE_PG_CLIENT);
-        recorder.setupVertxTracer(beanContainerBuildItem.getValue(), sqlClientAvailable);
     }
 
     @BuildStep
