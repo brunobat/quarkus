@@ -383,6 +383,7 @@
                 <module>opentelemetry-reactive</module>
                 <module>opentelemetry-grpc</module>
                 <module>opentelemetry-grpc-only</module>
+                <module>opentelemetry-grpc-multiplex</module>
                 <module>opentelemetry-vertx-exporter</module>
                 <module>opentelemetry-reactive-messaging</module>
                 <module>logging-json</module>

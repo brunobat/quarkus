@@ -7,11 +7,11 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
+import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.deployment.Capabilities;
 import io.quarkus.deployment.Capability;
 import io.quarkus.deployment.annotations.BuildProducer;
@@ -131,7 +131,7 @@ public class InstrumentationProcessor {
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
     void setupVertx(InstrumentationRecorder recorder, BeanContainerBuildItem beanContainerBuildItem,
-                    Capabilities capabilities) {
+            Capabilities capabilities) {
         boolean sqlClientAvailable = capabilities.isPresent(Capability.REACTIVE_DB2_CLIENT)
                 || capabilities.isPresent(Capability.REACTIVE_MSSQL_CLIENT)
                 || capabilities.isPresent(Capability.REACTIVE_MYSQL_CLIENT)
