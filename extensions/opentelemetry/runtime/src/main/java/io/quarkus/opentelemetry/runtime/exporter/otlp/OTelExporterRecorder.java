@@ -16,15 +16,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.NoopMetricExporter;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.VertxGrpcMetricExporter;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.VertxHttpMetricsExporter;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.sender.VertxGrpcSender;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.sender.VertxHttpSender;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.LateBoundBatchSpanProcessor;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.RemoveableLateBoundBatchSpanProcessor;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.VertxGrpcSpanExporter;
-import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.VertxHttpSpanExporter;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.util.TypeLiteral;
 
@@ -52,6 +43,15 @@ import io.quarkus.opentelemetry.runtime.config.runtime.exporter.OtlpExporterConf
 import io.quarkus.opentelemetry.runtime.config.runtime.exporter.OtlpExporterMetricsConfig;
 import io.quarkus.opentelemetry.runtime.config.runtime.exporter.OtlpExporterRuntimeConfig;
 import io.quarkus.opentelemetry.runtime.config.runtime.exporter.OtlpExporterTracesConfig;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.NoopMetricExporter;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.VertxGrpcMetricExporter;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.metrics.VertxHttpMetricsExporter;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.sender.VertxGrpcSender;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.sender.VertxHttpSender;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.LateBoundBatchSpanProcessor;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.RemoveableLateBoundBatchSpanProcessor;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.VertxGrpcSpanExporter;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.VertxHttpSpanExporter;
 import io.quarkus.runtime.annotations.Recorder;
 import io.quarkus.tls.TlsConfiguration;
 import io.quarkus.tls.TlsConfigurationRegistry;
@@ -349,7 +349,7 @@ public class OTelExporterRecorder {
         private final TlsConfigurationRegistry tlsConfigurationRegistry;
 
         public HttpClientOptionsConsumer(OtlpExporterConfig config, URI baseUri,
-                                         TlsConfigurationRegistry tlsConfigurationRegistry) {
+                TlsConfigurationRegistry tlsConfigurationRegistry) {
             this.config = config;
             this.baseUri = baseUri;
             this.maybeTlsConfiguration = TlsConfiguration.from(tlsConfigurationRegistry, config.tlsConfigurationName());

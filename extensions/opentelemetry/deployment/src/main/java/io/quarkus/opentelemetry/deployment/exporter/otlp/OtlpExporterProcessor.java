@@ -5,7 +5,6 @@ import static io.quarkus.opentelemetry.runtime.config.build.ExporterType.Constan
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
-import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.LateBoundBatchSpanProcessor;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Singleton;
 
@@ -26,6 +25,7 @@ import io.quarkus.opentelemetry.runtime.config.build.exporter.OtlpExporterBuildC
 import io.quarkus.opentelemetry.runtime.config.runtime.OTelRuntimeConfig;
 import io.quarkus.opentelemetry.runtime.config.runtime.exporter.OtlpExporterRuntimeConfig;
 import io.quarkus.opentelemetry.runtime.exporter.otlp.OTelExporterRecorder;
+import io.quarkus.opentelemetry.runtime.exporter.otlp.tracing.LateBoundBatchSpanProcessor;
 import io.quarkus.tls.TlsConfigurationRegistry;
 import io.quarkus.tls.TlsRegistryBuildItem;
 import io.quarkus.vertx.core.deployment.CoreVertxBuildItem;
