@@ -37,6 +37,7 @@ public class HierarchicalOTelConnectionConfigInterceptor extends FallbackConfigS
     static final String BASE = "quarkus.otel.exporter.otlp.";
     static final String TRACES = BASE + "traces.";
     static final String METRICS = BASE + "metrics.";
+    static final String LOGS = BASE + "logs.";
 
     private static final MappingFunction mappingFunction = new MappingFunction();
 
@@ -82,6 +83,12 @@ public class HierarchicalOTelConnectionConfigInterceptor extends FallbackConfigS
             }
             if (name.startsWith(METRICS)) {
                 String property = name.substring(METRICS.length());
+                if (PROPERTY_NAMES.contains(property)) {
+                    return BASE + property;
+                }
+            }
+            if (name.startsWith(LOGS)) {
+                String property = name.substring(LOGS.length());
                 if (PROPERTY_NAMES.contains(property)) {
                     return BASE + property;
                 }
