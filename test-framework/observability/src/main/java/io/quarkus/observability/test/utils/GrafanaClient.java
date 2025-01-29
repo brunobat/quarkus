@@ -87,6 +87,7 @@ public class GrafanaClient {
                         throw new UncheckedIOException(e);
                     }
                 });
+        System.out.println("User: " + ref.get());
         return ref.get();
     }
 
@@ -104,6 +105,7 @@ public class GrafanaClient {
                         throw new UncheckedIOException(e);
                     }
                 });
+        System.out.println("Query: " + ref.get());
         return ref.get();
     }
 
@@ -123,6 +125,7 @@ public class GrafanaClient {
                         throw new UncheckedIOException(e);
                     }
                 });
+        System.out.println("Traces: " + ref.get());
         return ref.get();
     }
 }
