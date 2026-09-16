@@ -79,7 +79,7 @@ jobs:
           echo "key=m2-cache-$(/bin/date -u "+%Y-%U")" >> $GITHUB_OUTPUT
       - name: Cache Maven Repository
         id: cache-maven
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository
           # refresh cache every week to avoid unlimited growth
@@ -217,7 +217,7 @@ jobs:
           echo "GE_CUSTOM_VALUES=gh-job-name=Native Tests - Virtual Thread - ${{matrix.category}}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - name: Restore Maven Repository
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.m2/repository
           # refresh cache every week to avoid unlimited growth
@@ -318,7 +318,7 @@ jobs:
             cat <<< $(jq '.HttpHeaders += {"User-Agent": "Quarkus-CI-Docker-Client"}' ~/.docker/config.json) > ~/.docker/config.json
           fi
       - name: Restore Maven Repository
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.m2/repository
           # refresh cache every week to avoid unlimited growth
@@ -338,7 +338,7 @@ jobs:
           add-pr-comment: false
           add-job-summary: false
       - name: Cache Quarkus metadata
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: '**/.quarkus/quarkus-prod-config-dump'
           key: ${{ runner.os }}-quarkus-metadata
