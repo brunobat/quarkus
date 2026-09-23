@@ -24,6 +24,7 @@ public class MicrometerMetricsDevUIProcessor {
 
     // Presence of the bridge runtime recorder means the micrometer->OTel bridge is active.
     private static final String BRIDGE_RECORDER = "io.quarkus.micrometer.opentelemetry.runtime.MicrometerOtelBridgeRecorder";
+    private static final String PROMETHEUS_REGISTRY = "io.micrometer.prometheusmetrics.PrometheusMeterRegistry";
 
     @BuildStep(onlyIf = { IsLocalDevelopment.class, MicrometerProcessor.MicrometerEnabled.class })
     void registerMicrometerMetricsCapture(BuildProducer<AdditionalBeanBuildItem> additionalBeans,
@@ -49,6 +50,13 @@ public class MicrometerMetricsDevUIProcessor {
                 .setDefaultScope(DotNames.SINGLETON)
                 .setUnremovable()
                 .build());
-        backends.produce(new MetricsBackendBuildItem("micrometer"));
+        // Only the Prometheus registry gives an export whose naming is known here; with any other registry
+        // the meters may reach Prometheus under different names, so no Grafana dashboard is offered.
+        boolean prometheusRegistry = QuarkusClassLoader.isClassPresentAtRuntime(PROMETHEUS_REGISTRY)
+                && ConfigProvider.getConfig()
+                        .getOptionalValue("quarkus.micrometer.export.prometheus.enabled", Boolean.class)
+                        .orElse(Boolean.TRUE);
+        backends.produce(new MetricsBackendBuildItem("micrometer",
+                prometheusRegistry ? "micrometer-prometheus" : null));
     }
 }
