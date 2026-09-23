@@ -59,13 +59,44 @@ public class GrafanaDashboardBuilderTest {
     }
 
     @Test
+    public void aLongTaskTimerQueriesItsActiveCount() {
+        Map<String, Object> card = Map.of("kind", "metric", "name", "probe.long.task", "plot", "step",
+                "unit", "tasks", "type", "LONG_TASK_TIMER");
+
+        assertThat(expr(panel(MICROMETER.build(List.of(card), null), 0), 0))
+                .isEqualTo("probe_long_task_seconds_active_count");
+    }
+
+    @Test
+    public void aTimerIsQueriedBySecondsAlthoughItIsCapturedAsS() {
+        Map<String, Object> card = Map.of("kind", "metric", "name", "probe.work", "plot", "distribution",
+                "unit", "s", "type", "TIMER", "maxCaptured", true);
+
+        JsonObject panel = panel(MICROMETER.build(List.of(card), null), 0);
+        assertThat(expr(panel, 0))
+                .isEqualTo("rate(probe_work_seconds_sum[$__rate_interval]) / rate(probe_work_seconds_count[$__rate_interval])");
+        assertThat(expr(panel, 1)).isEqualTo("probe_work_seconds_max");
+    }
+
+    @Test
     public void aDistributionCardDrawsTheMeanOfEachIntervalAndTheMaximum() {
-        JsonObject panel = panel(MICROMETER.build(List.of(metric("probe.work", "distribution", "seconds")), null), 0);
+        Map<String, Object> card = Map.of("kind", "metric", "name", "probe.work", "plot", "distribution",
+                "unit", "seconds", "maxCaptured", true);
+        JsonObject panel = panel(MICROMETER.build(List.of(card), null), 0);
 
         assertThat(expr(panel, 0))
                 .isEqualTo("rate(probe_work_seconds_sum[$__rate_interval]) / rate(probe_work_seconds_count[$__rate_interval])");
         assertThat(panel.getJsonArray("targets").getJsonObject(0).getString("legendFormat")).isEqualTo("mean");
         assertThat(expr(panel, 1)).isEqualTo("probe_work_seconds_max");
+    }
+
+    @Test
+    public void aDistributionWithoutACapturedMaximumDrawsOnlyTheMean() {
+        // A function timer tracks totals only: Micrometer publishes no _max series for it.
+        JsonObject panel = panel(MICROMETER.build(List.of(metric("probe.function.timer", "distribution", "s")),
+                null), 0);
+
+        assertThat(panel.getJsonArray("targets")).hasSize(1);
     }
 
     @Test
@@ -137,6 +168,22 @@ public class GrafanaDashboardBuilderTest {
         assertThat(panels.getJsonObject(1).getJsonObject("gridPos").getInteger("w")).isEqualTo(24);
         assertThat(panels.getJsonObject(1).getJsonObject("gridPos").getInteger("x")).isZero();
         assertThat(panels.getJsonObject(2).getJsonObject("gridPos").getInteger("x")).isZero();
+        // The row a card starts below is as tall as that row was, not as tall as the card itself.
+        assertThat(panels.getJsonObject(1).getJsonObject("gridPos").getInteger("y")).isEqualTo(8);
+        assertThat(panels.getJsonObject(2).getJsonObject("gridPos").getInteger("y")).isEqualTo(18);
+    }
+
+    @Test
+    public void aCardWithNothingToDrawLeavesNoHoleInTheLayout() {
+        JsonArray panels = OTLP.build(List.of(
+                Map.of("kind", "signal", "id", "something-else"),
+                metric("first", "value", ""),
+                metric("second", "value", "")), null).getJsonArray("panels");
+
+        assertThat(panels).hasSize(2);
+        assertThat(panels.getJsonObject(0).getJsonObject("gridPos").getInteger("y")).isZero();
+        assertThat(panels.getJsonObject(0).getJsonObject("gridPos").getInteger("x")).isZero();
+        assertThat(panels.getJsonObject(1).getJsonObject("gridPos").getInteger("x")).isEqualTo(12);
     }
 
     @Test

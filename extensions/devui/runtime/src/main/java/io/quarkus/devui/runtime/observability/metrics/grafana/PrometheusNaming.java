@@ -62,6 +62,20 @@ public enum PrometheusNaming {
             Map.entry("Hz", "hertz"),
             Map.entry("%", "percent"));
 
+    /**
+     * The Dev UI captures a Micrometer duration as {@code s} (see {@code DevUiMetricsSampler}), which is the
+     * abbreviation the card headers read in, while the Prometheus registry writes the unit out in the name.
+     */
+    private static final Map<String, String> MICROMETER_TIME_UNITS = Map.of(
+            "s", "seconds",
+            "ms", "milliseconds",
+            "us", "microseconds",
+            "\u00b5s", "microseconds",
+            "ns", "nanoseconds",
+            "min", "minutes",
+            "h", "hours",
+            "d", "days");
+
     private static final Map<String, String> UCUM_PER_UNITS = Map.of(
             "s", "second",
             "m", "minute",
@@ -105,14 +119,33 @@ public enum PrometheusNaming {
     }
 
     /**
-     * The companion time series holding the maximum of a distribution, or {@code null} when the route has
-     * none. Micrometer publishes a {@code _max} series; over OTLP the maximum arrives as a meter of its own
-     * ({@code http.server.requests.max}), and a plain OTel histogram has no maximum at all.
+     * The series holding the maximum of a distribution, or {@code null} when there is none to draw.
+     * Micrometer publishes a {@code _max} series beside the meter; over OTLP the maximum arrives as a meter
+     * of its own ({@code http.server.requests.max}).
+     *
+     * @param maxCaptured whether a maximum was actually captured for this meter
      */
-    public String maxName(String meterName, String unit, boolean maxMeterCaptured) {
+    public String maxName(String meterName, String unit, boolean maxCaptured) {
+        if (!maxCaptured) {
+            // A function timer tracks totals only, and a plain OTel histogram carries no maximum either.
+            return null;
+        }
         return switch (this) {
             case MICROMETER_PROMETHEUS -> baseName(meterName, unit, false) + "_max";
-            case OTLP -> maxMeterCaptured ? baseName(meterName + ".max", unit, true) : null;
+            case OTLP -> baseName(meterName + ".max", unit, true);
+        };
+    }
+
+    /**
+     * The series holding the number of tasks a long task timer has in flight. Micrometer publishes it as
+     * {@code <name>_seconds_active_count}, whatever unit the Dev UI captured for the meter; over OTLP the
+     * meter arrives split into {@code <name>.active} and {@code <name>.duration}, each an ordinary meter
+     * with a card of its own, so there is nothing special to do.
+     */
+    public String longTaskActiveName(String meterName, String unit) {
+        return switch (this) {
+            case MICROMETER_PROMETHEUS -> escape(meterName) + "_seconds_active_count";
+            case OTLP -> baseName(meterName, unit, true);
         };
     }
 
@@ -129,8 +162,8 @@ public enum PrometheusNaming {
             return "";
         }
         if (this == MICROMETER_PROMETHEUS) {
-            // A Micrometer base unit is already a word, e.g. "bytes", "seconds", "threads".
-            return escape(cleaned);
+            // A Micrometer base unit is otherwise already a word, e.g. "bytes" or "threads".
+            return escape(MICROMETER_TIME_UNITS.getOrDefault(cleaned, cleaned));
         }
         // An annotation carries no unit of its own: "{requests}" is dropped, "{requests}/s" is a rate.
         String stripped = cleaned.replaceAll("\\{[^}]*}", "").trim();

@@ -27,6 +27,7 @@ public final class GrafanaDashboardBuilder {
     private static final int PANEL_HEIGHT = 8;
     private static final int FULL_WIDTH = 24;
     private static final int SIGNAL_HEIGHT = 10;
+    private static final String LONG_TASK_TIMER = "LONG_TASK_TIMER";
 
     private final PrometheusNaming naming;
     private final String applicationName;
@@ -46,26 +47,33 @@ public final class GrafanaDashboardBuilder {
         boolean tempoUsed = false;
         int x = 0;
         int y = 0;
+        int rowHeight = 0;
         for (Map<String, Object> card : cards) {
             boolean signal = "signal".equals(string(card, "kind"));
+            JsonObject panel = signal ? signalPanel(card) : metricPanel(card);
+            if (panel == null) {
+                // Nothing to draw for this card, and nothing to move along either: a skipped card must not
+                // leave a hole in the layout.
+                continue;
+            }
             int width = signal ? FULL_WIDTH : PANEL_WIDTH;
             int height = signal ? SIGNAL_HEIGHT : PANEL_HEIGHT;
             if (x + width > FULL_WIDTH) {
+                // The row ends, so it is the height of the row just filled that the next one starts below.
                 x = 0;
-                y += height;
-            }
-            JsonObject panel = signal ? signalPanel(card) : metricPanel(card);
-            if (panel == null) {
-                continue;
+                y += rowHeight;
+                rowHeight = 0;
             }
             tempoUsed |= signal;
             panel.put("id", panels.size() + 1)
                     .put("gridPos", new JsonObject().put("h", height).put("w", width).put("x", x).put("y", y));
             panels.add(panel);
             x += width;
+            rowHeight = Math.max(rowHeight, height);
             if (x >= FULL_WIDTH) {
                 x = 0;
-                y += height;
+                y += rowHeight;
+                rowHeight = 0;
             }
         }
 
@@ -108,7 +116,9 @@ public final class GrafanaDashboardBuilder {
             }
             case "step" -> {
                 stepped = true;
-                targets.add(target(base, "A", null));
+                targets.add(target(LONG_TASK_TIMER.equals(string(card, "type"))
+                        ? naming.longTaskActiveName(meter, unit)
+                        : base, "A", null));
             }
             case "histogram" -> {
                 panelType = "heatmap";

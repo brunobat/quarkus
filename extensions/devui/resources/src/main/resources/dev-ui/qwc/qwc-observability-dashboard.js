@@ -348,11 +348,15 @@ export class QwcObservabilityDashboard extends ObservabilityCardBase {
     }
 
     /**
-     * Whether a Grafana dashboard can be made of what is on this one: metric cards need an export naming
-     * this build knows, while a signal card (traces) only needs the signal itself.
+     * Whether a Grafana dashboard can be made of what is on this one. The export is answered by the metrics
+     * JSON-RPC service, which only exists when a metrics backend registered it, so an application with only
+     * traces has nothing to ask - and metric cards additionally need an export naming this build knows.
      */
     _exportableToGrafana() {
-        return (this._cards ?? []).some(id => id.startsWith(SIGNAL_PREFIX)
+        if (!this._metricsAvailable) {
+            return false;
+        }
+        return this._visibleCards().some(id => id.startsWith(SIGNAL_PREFIX)
                 || (prometheusNaming && id.startsWith(METRIC_PREFIX)));
     }
 
@@ -1037,7 +1041,9 @@ export class QwcObservabilityDashboard extends ObservabilityCardBase {
      */
     _exportGrafana() {
         const cards = [];
-        for (const id of this._cards ?? []) {
+        // The cards as shown: the stored list follows the developer between applications, so it can name
+        // meters this one never registered.
+        for (const id of this._visibleCards()) {
             if (id.startsWith(SIGNAL_PREFIX)) {
                 const key = id.substring(SIGNAL_PREFIX.length);
                 const signal = this._signals.find(s => s.key === key);
@@ -1045,14 +1051,19 @@ export class QwcObservabilityDashboard extends ObservabilityCardBase {
             } else if (id.startsWith(METRIC_PREFIX) && prometheusNaming) {
                 const name = id.substring(METRIC_PREFIX.length);
                 const plot = this._plotFor(name);
+                const series = Object.values(this._sections[name] ?? {});
                 cards.push({
                     kind: 'metric',
                     name,
                     plot: plot.kind,
                     unit: plot.unit ?? '',
-                    // Over OTLP the maximum of a distribution arrives as a meter of its own, so the panel
-                    // can only draw it when that meter was captured too.
-                    maxCaptured: this._metricMeta(`${name}.max`) !== null,
+                    // The meter type decides the names of a few series, e.g. a long task timer is published
+                    // per seconds active whatever unit it is captured with.
+                    type: series[0]?.type ?? this._metricMeta(name)?.type ?? '',
+                    // A maximum is only drawn where one is published: a function timer tracks totals only,
+                    // and over OTLP the maximum arrives as a meter of its own.
+                    maxCaptured: series.some(s => (s.distribution?.maxes ?? []).some(Number.isFinite))
+                            || this._metricMeta(`${name}.max`) !== null,
                 });
             }
         }
@@ -1067,6 +1078,8 @@ export class QwcObservabilityDashboard extends ObservabilityCardBase {
         }).then(resp => {
             this.exportJson(resp.result, 'quarkus-dev-ui-dashboard.json');
             notifier.showInfoMessage('Dashboard exported. Import it in Grafana under Dashboards, New, Import.');
+        }).catch(error => {
+            notifier.showErrorMessage('The dashboard could not be exported: ' + error);
         });
     }
 

@@ -9,6 +9,10 @@ import org.junit.jupiter.api.Test;
  * Prometheus. A probe application registered a meter of every shape and was run three ways against the LGTM
  * Dev Service image (Micrometer with the Prometheus registry scraped, Micrometer bridged to OpenTelemetry,
  * and OpenTelemetry on its own), and the names Prometheus ended up holding are the ones asserted below.
+ * <p>
+ * The units passed in are the ones the Dev UI <em>captures</em>, which are not always the ones the meter
+ * declares: {@code DevUiMetricsSampler} records a duration as {@code s} and a long task timer as
+ * {@code tasks}, while Prometheus writes {@code seconds} into the name in both cases.
  */
 public class PrometheusNamingTest {
 
@@ -22,6 +26,8 @@ public class PrometheusNamingTest {
         assertThat(naming.counterName("probe.orders", null)).isEqualTo("probe_orders_total");
         assertThat(naming.counterName("probe.payload.received", "bytes"))
                 .isEqualTo("probe_payload_received_bytes_total");
+        // "s" as the Dev UI captures a duration, "seconds" as Prometheus spells it.
+        assertThat(naming.baseName("probe.work", "s", false)).isEqualTo("probe_work_seconds");
         assertThat(naming.baseName("probe.work", "seconds", false)).isEqualTo("probe_work_seconds");
         assertThat(naming.baseName("probe.response.size", "bytes", false)).isEqualTo("probe_response_size_bytes");
     }
@@ -36,8 +42,20 @@ public class PrometheusNamingTest {
 
     @Test
     public void micrometerHasAMaxSeriesOfItsOwn() {
-        assertThat(PrometheusNaming.MICROMETER_PROMETHEUS.maxName("probe.work", "seconds", false))
+        assertThat(PrometheusNaming.MICROMETER_PROMETHEUS.maxName("probe.work", "s", true))
                 .isEqualTo("probe_work_seconds_max");
+        // A function timer tracks totals only, so there is no maximum to draw.
+        assertThat(PrometheusNaming.MICROMETER_PROMETHEUS.maxName("probe.function.timer", "s", false)).isNull();
+    }
+
+    @Test
+    public void aLongTaskTimerIsNamedAfterSecondsWhateverUnitWasCaptured() {
+        // Captured as "tasks" (the active task count), published as probe_long_task_seconds_active_count.
+        assertThat(PrometheusNaming.MICROMETER_PROMETHEUS.longTaskActiveName("probe.long.task", "tasks"))
+                .isEqualTo("probe_long_task_seconds_active_count");
+        // Over OTLP the meter arrives already split, so the active count is an ordinary meter.
+        assertThat(PrometheusNaming.OTLP.longTaskActiveName("probe.long.task.active", "{tasks}"))
+                .isEqualTo("probe_long_task_active");
     }
 
     @Test
@@ -92,7 +110,7 @@ public class PrometheusNamingTest {
 
         assertThat(naming.maxName("http.server.requests", "ms", true))
                 .isEqualTo("http_server_requests_max_milliseconds");
-        // Nothing to draw when the companion meter was not captured, e.g. a plain OTel histogram.
+        // Nothing to draw when no maximum was captured, e.g. a plain OTel histogram.
         assertThat(naming.maxName("probe.native.duration", "s", false)).isNull();
     }
 
