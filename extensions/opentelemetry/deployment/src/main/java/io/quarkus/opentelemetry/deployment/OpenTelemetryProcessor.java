@@ -26,6 +26,8 @@ import org.jboss.jandex.AnnotationTransformation;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.ClassType;
 import org.jboss.jandex.DotName;
+import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.ParameterizedType;
 import org.jboss.jandex.Type;
 import org.objectweb.asm.ClassVisitor;
@@ -67,6 +69,7 @@ import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.builditem.BytecodeTransformerBuildItem;
+import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.LaunchModeBuildItem;
 import io.quarkus.deployment.builditem.OpenTelemetrySdkBuildItem;
 import io.quarkus.deployment.builditem.RemovedResourceBuildItem;
@@ -110,6 +113,14 @@ public class OpenTelemetryProcessor {
         }
     };
     private static final DotName WITH_SPAN_INTERCEPTOR = DotName.createSimple(WithSpanInterceptor.class.getName());
+    // the annotation is package-private so that applications cannot use it, hence the name is spelled out
+    private static final DotName SPAN_CODE_FUNCTION = DotName
+            .createSimple("io.quarkus.opentelemetry.runtime.tracing.cdi.SpanCodeFunction");
+    /**
+     * Suffix of the CDI bean generated for each REST client interface, see
+     * {@code org.jboss.resteasy.reactive.common.processor.EndpointIndexer#CDI_WRAPPER_SUFFIX}.
+     */
+    private static final String REST_CLIENT_CDI_WRAPPER_SUFFIX = "$$CDIWrapper";
     private static final DotName ADD_SPAN_ATTRIBUTES_INTERCEPTOR = DotName
             .createSimple(AddingSpanAttributesInterceptor.class.getName());
 
@@ -391,7 +402,8 @@ public class OpenTelemetryProcessor {
                     public List<InterceptorBinding> getAdditionalBindings() {
                         return List.of(
                                 InterceptorBinding.of(WithSpan.class, Set.of("value", "kind")),
-                                InterceptorBinding.of(AddingSpanAttributes.class, Set.of("value")));
+                                InterceptorBinding.of(AddingSpanAttributes.class, Set.of("value")),
+                                InterceptorBinding.of(SPAN_CODE_FUNCTION, Set.of("value")));
                     }
                 }));
 
@@ -417,6 +429,29 @@ public class OpenTelemetryProcessor {
         annotationsTransformer.produce(new AnnotationsTransformerBuildItem(AnnotationTransformation.forMethods()
                 .whenAllMatch(WITH_SPAN, ADD_SPAN_ATTRIBUTES)
                 .transform(ctx -> ctx.remove(isAddSpanAttribute))));
+    }
+
+    /**
+     * The {@code $$CDIWrapper} generated for a REST client interface is the class that gets intercepted, so the
+     * {@code code.function.name} attribute derived from the intercepted method would name the generated wrapper.
+     * We resolve the name of the REST client interface method at build time instead and pass it to the interceptor
+     * as an interceptor binding.
+     */
+    @BuildStep
+    void transformRestClientWithSpan(CombinedIndexBuildItem combinedIndex,
+            BuildProducer<AnnotationsTransformerBuildItem> annotationsTransformer) {
+        IndexView index = combinedIndex.getIndex();
+        annotationsTransformer.produce(new AnnotationsTransformerBuildItem(AnnotationTransformation.forMethods()
+                .whenMethod(m -> m.declaringClass().name().toString().endsWith(REST_CLIENT_CDI_WRAPPER_SUFFIX))
+                .transform(ctx -> {
+                    if (!ctx.hasAnnotation(WITH_SPAN) || ctx.hasAnnotation(SPAN_CODE_FUNCTION)) {
+                        return;
+                    }
+                    MethodInfo method = ctx.declaration().asMethod();
+                    ctx.add(AnnotationInstance.builder(SPAN_CODE_FUNCTION)
+                            .value(RestClientCodeFunctionNameResolver.resolve(index, method))
+                            .build());
+                })));
     }
 
     @BuildStep

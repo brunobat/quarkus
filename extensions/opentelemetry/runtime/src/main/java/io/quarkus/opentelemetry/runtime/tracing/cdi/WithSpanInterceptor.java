@@ -171,9 +171,19 @@ public class WithSpanInterceptor {
 
         @Override
         public void onStart(AttributesBuilder attributesBuilder, Context context, MethodRequest methodRequest) {
-            attributesBuilder.put(CODE_FUNCTION_NAME,
-                    methodRequest.getMethod().getDeclaringClass().getName() + "." +
-                            methodRequest.getMethod().getName());
+            attributesBuilder.put(CODE_FUNCTION_NAME, codeFunctionName(methodRequest));
+        }
+
+        private static String codeFunctionName(MethodRequest methodRequest) {
+            // the name is pre-computed at build time when the intercepted method is not the one the user wrote,
+            // e.g. for REST client interfaces where the generated CDI wrapper is intercepted
+            for (Annotation annotation : methodRequest.getAnnotationBindings()) {
+                if (annotation instanceof SpanCodeFunction) {
+                    return ((SpanCodeFunction) annotation).value();
+                }
+            }
+            return methodRequest.getMethod().getDeclaringClass().getName() + "." +
+                    methodRequest.getMethod().getName();
         }
 
         @Override
